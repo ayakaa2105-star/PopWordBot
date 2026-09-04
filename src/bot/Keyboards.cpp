@@ -18,4 +18,16 @@ TgBot::ReplyKeyboardMarkup::Ptr Keyboards::mainMenu() {
 	keyboard->keyboard.push_back(row2);
 	return keyboard;
 }
+TgBot::InlineKeyboardMarkup::Ptr Keyboards::quizOptions(const vector<string>& options) {
+	auto keyboard = make_shared<TgBot::InlineKeyboardMarkup>();
+	for (int i{ 0 }; i < options.size(); i++) {
+		auto button = make_shared<TgBot::InlineKeyboardButton>();
+		button->text = options[i];
+		button->callbackData = "quiz_" + to_string(i);
+		vector <TgBot::InlineKeyboardButton::Ptr> row;
+		row.push_back(button);
+		keyboard->inlineKeyboard.push_back(row);
+	}
+	return keyboard;
+}
 

@@ -13,7 +13,7 @@ static size_t writeCallback(char* dataFromServer, size_t size, size_t numofeleme
     out->append(dataFromServer, size * numofelements);
     return size * numofelements;
 }
-string getTranslation(const string& englishWord) {
+string DictionaryClient::getTranslation(const string& englishWord) {
     CURL* curl = curl_easy_init();
     if (!curl) {
         cout << "Init failed! \n";
@@ -21,7 +21,7 @@ string getTranslation(const string& englishWord) {
     }
     string answer;
     json request;
-    request["folderId"] = "b1gpjavb5l906u2agc6f";
+    request["folderId"] = "";
     request["texts"] = { englishWord };
     request["targetLanguageCode"] = "ru";
     string requestText = request.dump();
@@ -31,7 +31,7 @@ string getTranslation(const string& englishWord) {
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &answer);
     curl_slist* headers = nullptr;
     headers = curl_slist_append(headers, "Content-Type: application/json");
-    headers = curl_slist_append(headers,"Authorization: ");
+    headers = curl_slist_append(headers, "Authorization: ");
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
     curl_easy_setopt(curl, CURLOPT_POST, 1L);
     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, requestText.c_str());
