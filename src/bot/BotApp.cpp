@@ -1,10 +1,10 @@
 ﻿#include "BotApp.h"
 #include "Keyboards.h"
 #include "../logging/Logger.h"
+#include "../db/Database.h"
 using namespace std;
-BotApp::BotApp(const string& token) : bot_(token), db_("data/popword.db")//, quiz_(db_) 
-{
-	db_init();
+BotApp::BotApp(const string& token) : bot_(token), db_("data/popword.db"), quiz_(db_) {
+	db_.init();
 	registratHandlers();
 }
 void BotApp::registratHandlers() {
@@ -12,7 +12,7 @@ void BotApp::registratHandlers() {
 		onStartCommand(message);
 		});
 	bot_.getEvents().onAnyMessage([this](TgBot::Message::Ptr message) {
-		if (!message->text.empty() && message->text[0] == '/') {
+		if (!message->text.has_value() && message->text->empty() && message->text->front() == '/') {
 			return;
 		}
 		onText(message);
@@ -78,32 +78,44 @@ void BotApp::handleMainMenuButton(TgBot::Message::Ptr message) {
 		Logger::info("Пользователь открыл библиотеку: " + to_string(userId));
 		bot_.getApi().sendMessage(chatId, "Библиотека пока находится в разработке");
 	}
-else if (message->text == "Quiz") {
-	Logger::info("Пользователь пытался запустить квиз: " + to_string(userId));
-	bot_.getApi().sendMessage(chatId, "Quiz пока находится в разработке");
-}
-else {
-	Logger::warn(
-		"Непонятный ввод от пользователя" + to_string(userId)
-	);
-	bot_.getApi().sendMessage(chatId, "Пожалуйста, используйте кнопки меню.");
+	else if (message->text == "Quiz") {
+		Logger::info("Пользователь запустил квиз: " + to_string(userId));
+		startQuiz(chatId, userId);
+	}
+	else {
+		Logger::warn("Непонятный ввод от пользователя" + to_string(userId));
+		bot_.getApi().sendMessage(chatId, "Пожалуйста, используйте кнопки меню.");
 	}
 }
 void BotApp::handleAddedWord(TgBot::Message::Ptr message) {
 	int64_t chatId = message->chat->id;
 	int64_t userId = message->from->id;
-	if (!isValidWordInput(message->text)) {
-		Logger::warn("Некорректный ввод слова от пользователя: " + to_string(userId));
-		bot_.getApi(sendMessage(chatId, "Некорректное слово.\n Введите английское слово латинскими буквами!");
-		return;
+	if (message->text.has_value()) {
+		const std::string& text = message->text.value();
+		if (!isValidWordInput(text)) {
+			Logger::warn("Некорректный ввод слова от пользователя: " + to_string(userId));
+			bot_.getApi().sendMessage(chatId, "Некорректное слово.\nВведите английское слово латинскими буквами!");
+			return;
+		}
+		Word word;
+		word.userId = userId;
+		word.word = text;
+		db_.addWord(word);
+		bot_.getApi().sendMessage(chatId, "Слово \"" + text + "\" записано!");
+		bool isFirstWord = (db_.getWordsByUser(userId).size() == 1);
+		if (isFirstWord && firstWordAdded_.find(userId) == firstWordAdded_.end()) {
+			bot_.getApi().sendMessage(chatId, "Для эффективного запоминания слов включите уведомления в настройках Telegram для этого бота.");
+			firstWordAdded_.insert(userId);
+		}
+		userStates_[chatId] = UserState::IDLE;
+		bot_.getApi().sendMessage(
+			chatId,
+			"Menu:",
+			nullptr,
+			nullptr,
+			Keyboards::mainMenu()
+		);
 	}
-	bool isFirstWord = != firstAddedWord(chatId, "Слово " + message->text + "записано!");
-	if (isFirstWord) {
-		bot_.getApi().sendMessage(chatId, "Для эффективного запоминания слов включите уведомления в настройках Telegram для этого бота!");
-		firstWordAdded_.insert(userId);
-	}
-	UserStates_[chatId] = UserState::IDLE;
-	bot_.getApi().sendMessage(chatId, "Menu:", nullptr, nullptr, Keyboards::mainMenu());
 }
 bool BotApp::isValidWordInput(const string& text) const {
 	if (text.empty()) {
@@ -113,16 +125,22 @@ bool BotApp::isValidWordInput(const string& text) const {
 		return false;
 	}
 	for (char symbol : text) {
-		if (!(symbol >= 'a' && symbol <= 'z') ||
-			(symbol >= 'A' && symbol <= 'Z')) {
+		if (!((symbol >= 'a' && symbol <= 'z') ||
+			(symbol >= 'A' && symbol <= 'Z'))) {
 			return false;
 		}
 	}
 	return true;
 }
 void BotApp::startQuiz(int64_t chatId, int64_t userId) {
-	Logger::info("Quiz еще не реализован для пользователя: " + to_string(userId));
-	bot_.getApi().sendMessage(chatId, "Quiz пока находится в разработке.");
+	auto question = quiz_.generateQuestion(userId);
+	if (!question) {
+		bot_.getApi().sendMessage(chatId, "Для Quiz нужно минимум 4 слова в библиотеке.");
+		return;
+	}
+	userStates_[chatId] = UserState::IN_QUIZ;
+	bot_.getApi().sendMessage(chatId, "🧠 What does " + question->correctWord.word + " mean?", nullptr, nullptr, Keyboards::quizOptions(question->options));
+	Logger::info("Quiz запущен для пользователя: " + to_string(userId));
 }
 void BotApp::onCallbackQuery(TgBot::CallbackQuery::Ptr query) {
 	bot_.getApi().answerCallbackQuery(query->id);

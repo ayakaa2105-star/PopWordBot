@@ -1,15 +1,14 @@
 ﻿#pragma once
 #include <string>
 #include <optional>
-using namespace std;
 struct WordInfo {
-    string translation;
-    string explanation;
-    string example;
+    std::string translation;
+    std::string explanation;
+    std::string example;
 };
 class DictionaryClient {
 public:
-    optional<WordInfo> lookup(const string& englishWord);
+    std::optional<WordInfo> lookup(const std::string& englishWord);
 private:
-    string getTranslation(const string& englishWord);
+    std::string getTranslation(const std::string& englishWord);
 };
