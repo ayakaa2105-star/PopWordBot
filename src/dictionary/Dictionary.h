@@ -9,6 +9,4 @@ struct WordInfo {
 class DictionaryClient {
 public:
     std::optional<WordInfo> lookup(const std::string& englishWord);
-private:
-    std::string getTranslation(const std::string& englishWord);
 };
