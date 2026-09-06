@@ -90,33 +90,58 @@ void BotApp::handleMainMenuButton(TgBot::Message::Ptr message) {
 void BotApp::handleAddedWord(TgBot::Message::Ptr message) {
 	int64_t chatId = message->chat->id;
 	int64_t userId = message->from->id;
-	if (message->text.has_value()) {
-		const std::string& text = message->text.value();
-		if (!isValidWordInput(text)) {
-			Logger::warn("Некорректный ввод слова от пользователя: " + to_string(userId));
-			bot_.getApi().sendMessage(chatId, "Некорректное слово.\nВведите английское слово латинскими буквами!");
-			return;
-		}
-		Word word;
-		word.userId = userId;
-		word.word = text;
-		db_.addWord(word);
-		bot_.getApi().sendMessage(chatId, "Слово \"" + text + "\" записано!");
-		bool isFirstWord = (db_.getWordsByUser(userId).size() == 1);
-		if (isFirstWord && firstWordAdded_.find(userId) == firstWordAdded_.end()) {
-			bot_.getApi().sendMessage(chatId, "Для эффективного запоминания слов включите уведомления в настройках Telegram для этого бота.");
-			firstWordAdded_.insert(userId);
-		}
-		userStates_[chatId] = UserState::IDLE;
-		bot_.getApi().sendMessage(
-			chatId,
-			"Menu:",
-			nullptr,
-			nullptr,
-			Keyboards::mainMenu()
-		);
+	if (!message->text.has_value()) {
+		return;
 	}
+	const std::string& text = message->text.value();
+	if (!isValidWordInput(text)) {
+		Logger::warn("Некорректный ввод слова от пользователя: " + to_string(userId));
+		bot_.getApi().sendMessage(chatId, "Некорректное слово.\nВведите английское слово латинскими буквами!");
+		return;
+	}
+	bot_.getApi().sendMessage(chatId, "🔎 Ищу перевод...");
+	auto info = dictionary_.lookup(text);
+	if (!info) {
+		Logger::warn("Не удалось получить перевод слова: " + text);
+		bot_.getApi().sendMessage(chatId, "Не удалось найти это слово в словаре 😔\n"
+			"Проверьте написание или попробуйте другое слово."
+		);
+		return;
+	}
+	Word word;
+	word.userId = userId;
+	word.word = text;
+	word.translation = info->translation;
+	word.explanation = info->explanation;
+	word.example = info->example;
+	db_.addWord(word);
+	string reply = "Слово \"" + text + "\" записано!";
+	if (!word.translation.empty()) {
+		reply += "\n\n" + text + " — " + word.translation;
+	}
+	else {
+		reply += "\n\n⚠️ Перевод временно недоступен, но слово сохранено — можно будет перевести его позже.";
+	}
+	if (!word.example.empty()) {
+		reply += "\nПример: " + word.example;
+	}
+	bot_.getApi().sendMessage(chatId, reply);
+	bool isFirstWord = (db_.getWordsByUser(userId).size() == 1);
+	if (isFirstWord && firstWordAdded_.find(userId) == firstWordAdded_.end()) {
+		db_.setReminders(userId, true);
+		bot_.getApi().sendMessage(chatId, "Для эффективного запоминания слов включите уведомления в настройках Telegram для этого бота.");
+		firstWordAdded_.insert(userId);
+	}
+	userStates_[chatId] = UserState::IDLE;
+	bot_.getApi().sendMessage(
+		chatId,
+		"Menu:",
+		nullptr,
+		nullptr,
+		Keyboards::mainMenu()
+	);
 }
+
 bool BotApp::isValidWordInput(const string& text) const {
 	if (text.empty()) {
 		return false;
