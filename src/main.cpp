@@ -30,7 +30,7 @@ int main() {
             });
         reminderThread.detach();
         cout << "PopWordBot is running..." << endl;
-        BotApp app(token);
+        BotApp app(token, db);
         app.run();
     }
     catch (const exception& e) {

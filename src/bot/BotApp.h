@@ -10,11 +10,11 @@ enum class UserState {
 };
 class BotApp {
 public:
-	explicit BotApp(const std::string& token);
+	BotApp(const std::string& token, Database& db);
 	void run();
 private:
 	TgBot::Bot bot_;
-	Database db_;
+	Database& db_;
 	DictionaryClient dictionary_;
 	QuizEngine quiz_;
 	std::unordered_set<int64_t> firstWordAdded_;

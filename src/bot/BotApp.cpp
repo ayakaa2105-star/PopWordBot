@@ -3,8 +3,8 @@
 #include "../logging/Logger.h"
 #include "../db/Database.h"
 using namespace std;
-BotApp::BotApp(const string& token) : bot_(token), db_("data/popword.db"), quiz_(db_) {
-	db_.init();
+BotApp::BotApp(const string& token, Database& db)
+	: bot_(token), db_(db), quiz_(db_) {
 	registratHandlers();
 }
 void BotApp::registratHandlers() {
