@@ -93,7 +93,7 @@ void BotApp::handleAddedWord(TgBot::Message::Ptr message) {
 	if (!message->text.has_value()) {
 		return;
 	}
-	const std::string& text = message->text.value();
+	const string& text = message->text.value();
 	if (!isValidWordInput(text)) {
 		Logger::warn("Некорректный ввод слова от пользователя: " + to_string(userId));
 		bot_.getApi().sendMessage(chatId, "Некорректное слово.\nВведите английское слово латинскими буквами!");
@@ -164,10 +164,64 @@ void BotApp::startQuiz(int64_t chatId, int64_t userId) {
 		return;
 	}
 	userStates_[chatId] = UserState::IN_QUIZ;
+	activeQuiz_[chatId] = *question;
 	bot_.getApi().sendMessage(chatId, "🧠 What does " + question->correctWord.word + " mean?", nullptr, nullptr, Keyboards::quizOptions(question->options));
 	Logger::info("Quiz запущен для пользователя: " + to_string(userId));
 }
+namespace {
+	int64_t chatIdFromCallbackMessage(
+		const TgBot::MaybeInaccessibleMessage::Ptr& message
+	) {
+		if (!message) {
+			return 0;
+		}
+		return visit([](auto&& m) -> int64_t {
+			return (m && m->chat) ? m->chat->id : 0;
+			}, message->value);
+	}
+}
 void BotApp::onCallbackQuery(TgBot::CallbackQuery::Ptr query) {
-	bot_.getApi().answerCallbackQuery(query->id);
-	Logger::info("Нажатие inline кнопки.");
+	int64_t chatId = chatIdFromCallbackMessage(query->message);
+	int64_t userId = query->from->id;
+	auto it = activeQuiz_.find(chatId);
+	if (it == activeQuiz_.end()) {
+		bot_.getApi().answerCallbackQuery(query->id, "Этот квиз уже закрыт.");
+		return;
+	}
+	const QuizQuestion& question = it->second;
+	if (!query->data.has_value()) {
+		bot_.getApi().answerCallbackQuery(query->id);
+		return;
+	}
+	const string& data = query->data.value();
+	const string prefix = "quiz_";
+	if (data.rfind(prefix, 0) != 0) {
+		bot_.getApi().answerCallbackQuery(query->id);
+		return;
+	}
+	int chosenIndex = -1;
+	try {
+		chosenIndex = stoi(data.substr(prefix.size()));
+	}
+	catch (const exception&) {
+		bot_.getApi().answerCallbackQuery(query->id);
+		return;
+	}
+	bool correct = (chosenIndex == question.correctOptionIndex);
+	bot_.getApi().answerCallbackQuery(query->id, correct ? "✅" : "❌");
+	if (correct) { 
+		bot_.getApi().sendMessage(chatId, "✅ Correct! " + question.correctWord.word + " = " + question.correctWord.translation);
+	}
+	else {
+		bot_.getApi().sendMessage(chatId, "💡 Almost!\nПравильный ответ: " + question.correctWord.word + " - " + question.correctWord.translation + ". \nTry to remember it for next time!");
+	}
+	activeQuiz_.erase(it);
+	userStates_[chatId] = UserState::IDLE;
+	Logger::info("Ответ на квиз от пользователя " + to_string(userId) + ": " + (correct ? "верно" : "неверно"));
+	bot_.getApi().sendMessage(chatId,
+		"Menu:",
+		nullptr,
+		nullptr,
+		Keyboards::mainMenu()
+	);
 }
