@@ -2,6 +2,8 @@
 #include "Keyboards.h"
 #include "../logging/Logger.h"
 #include "../db/Database.h"
+#include <chrono>
+#include <thread>
 using namespace std;
 BotApp::BotApp(const string& token, Database& db)
 	: bot_(token), db_(db), quiz_(db_) {
@@ -22,14 +24,17 @@ void BotApp::registratHandlers() {
 		});
 }
 void BotApp::run() {
-	try {
-		TgBot::TgLongPoll longPoll(bot_);
-		while (true) {
-			longPoll.start();
+	while (true) {
+		try {
+			TgBot::TgLongPoll longPoll(bot_);
+			while (true) {
+				longPoll.start();
+			}
 		}
-	}
-	catch (const exception& error) {
-		Logger::error("Ошибка в работе бота: " + string(error.what()));
+		catch (const exception& error) {
+			Logger::error("Ошибка в работе бота: " + string(error.what()));
+			this_thread::sleep_for(chrono::seconds(5));
+		}
 	}
 }
 void BotApp::onStartCommand(TgBot::Message::Ptr message) {
