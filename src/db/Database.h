@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include <sqlite3.h>
+#include <mutex>
 #include <string>
 #include <vector>
 #include "models.h"
@@ -17,4 +18,5 @@ public:
 private:
     sqlite3* db_ = nullptr;
     void exec(const std::string& sql);
+    std::mutex mutex_;
 };
