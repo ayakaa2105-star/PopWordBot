@@ -23,19 +23,13 @@ optional<QuizQuestion> QuizEngine::generateQuestion(int64_t userId) {
     for (int i = 0; i < 3; i++) {
         uniform_int_distribution<size_t> pickRemaining(0, words.size() - 1);
         size_t randomWordId = pickRemaining(rng());
-
         options.push_back(words[randomWordId].translation);
         words.erase(words.begin() + randomWordId);
     }
     options.push_back(correctWord.translation);
     shuffle(options.begin(), options.end(), rng());
-    auto it = find(
-        options.begin(),
-        options.end(),
-        correctWord.translation
-    );
-    int correctOptionIndex =
-        static_cast<int>(distance(options.begin(), it));
+    auto it = find(options.begin(), options.end(), correctWord.translation);
+    int correctOptionIndex = static_cast<int>(distance(options.begin(), it));
     QuizQuestion q;
     q.correctWord = correctWord;
     q.options = options;

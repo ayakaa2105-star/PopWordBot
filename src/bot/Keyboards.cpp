@@ -30,4 +30,3 @@ TgBot::InlineKeyboardMarkup::Ptr Keyboards::quizOptions(const vector<string>& op
 	}
 	return keyboard;
 }
-

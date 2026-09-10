@@ -30,7 +30,6 @@ target_include_directories(PopWordBot PRIVATE
     src
     ${TGBOT_ROOT}/include
 )
-
 target_link_libraries(PopWordBot PRIVATE
     TgBot
     Boost::system

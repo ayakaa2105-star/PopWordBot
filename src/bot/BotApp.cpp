@@ -2,11 +2,10 @@
 #include "Keyboards.h"
 #include "../logging/Logger.h"
 #include "../db/Database.h"
-#include <chrono>
 #include <thread>
+#include <chrono>
 using namespace std;
-BotApp::BotApp(const string& token, Database& db)
-	: bot_(token), db_(db), quiz_(db_) {
+BotApp::BotApp(const string& token, Database& db) : bot_(token), db_(db), quiz_(db_) {
 	registratHandlers();
 }
 void BotApp::registratHandlers() {
@@ -14,7 +13,7 @@ void BotApp::registratHandlers() {
 		onStartCommand(message);
 		});
 	bot_.getEvents().onAnyMessage([this](TgBot::Message::Ptr message) {
-		if (!message->text.has_value() && message->text->empty() && message->text->front() == '/') {
+		if (!message->text.has_value() || message->text->empty() || message->text->front() == '/') {
 			return;
 		}
 		onText(message);
@@ -32,7 +31,7 @@ void BotApp::run() {
 			}
 		}
 		catch (const exception& error) {
-			Logger::error("Ошибка в работе бота: " + string(error.what()));
+			Logger::error("Ошибка в работе бота: " + string(error.what()) + ". Повторная попытка через 5 секунд.");
 			this_thread::sleep_for(chrono::seconds(5));
 		}
 	}
@@ -47,7 +46,9 @@ void BotApp::onStartCommand(TgBot::Message::Ptr message) {
 		"👋 Welcome to PopWord!\n"
 		"Здесь учить английские слова проще чем кажется.🧠💫\n\n"
 		"Сейчас это бета - версия Telegram - бота, которую мы постепенно развиваем и улучшаем.\n"
-		"С помощью PopWord вы можете добавлять новую лексику, практиковать её с помощью коротких игр - квизов и возвращаться к словам, чтобы они действительно запоминались.\n",
+		"С помощью PopWord вы можете добавлять новую лексику, практиковать её с помощью коротких игр - квизов и возвращаться к словам, чтобы они действительно запоминались.\n"
+		"Готовы начать? 🚀\n"
+		"Добавьте свое первое слово!",
 		nullptr,
 		nullptr,
 		Keyboards::mainMenu()
@@ -98,7 +99,7 @@ void BotApp::handleAddedWord(TgBot::Message::Ptr message) {
 	if (!message->text.has_value()) {
 		return;
 	}
-	const string& text = message->text.value();
+	const std::string& text = message->text.value();
 	if (!isValidWordInput(text)) {
 		Logger::warn("Некорректный ввод слова от пользователя: " + to_string(userId));
 		bot_.getApi().sendMessage(chatId, "Некорректное слово.\nВведите английское слово латинскими буквами!");
@@ -108,7 +109,9 @@ void BotApp::handleAddedWord(TgBot::Message::Ptr message) {
 	auto info = dictionary_.lookup(text);
 	if (!info) {
 		Logger::warn("Не удалось получить перевод слова: " + text);
-		bot_.getApi().sendMessage(chatId, "Не удалось найти это слово в словаре 😔\n"
+		bot_.getApi().sendMessage(
+			chatId,
+			"Не удалось найти это слово в словаре 😔\n"
 			"Проверьте написание или попробуйте другое слово."
 		);
 		return;
@@ -127,13 +130,15 @@ void BotApp::handleAddedWord(TgBot::Message::Ptr message) {
 	else {
 		reply += "\n\n⚠️ Перевод временно недоступен, но слово сохранено — можно будет перевести его позже.";
 	}
+	if (!word.explanation.empty()) {
+		reply += "\n\nОписание: " + word.explanation;
+	}
 	if (!word.example.empty()) {
-		reply += "\nПример: " + word.example;
+		reply += "\n\nПример: " + word.example;
 	}
 	bot_.getApi().sendMessage(chatId, reply);
 	bool isFirstWord = (db_.getWordsByUser(userId).size() == 1);
 	if (isFirstWord && firstWordAdded_.find(userId) == firstWordAdded_.end()) {
-		db_.setReminders(userId, true);
 		bot_.getApi().sendMessage(chatId, "Для эффективного запоминания слов включите уведомления в настройках Telegram для этого бота.");
 		firstWordAdded_.insert(userId);
 	}
@@ -146,7 +151,6 @@ void BotApp::handleAddedWord(TgBot::Message::Ptr message) {
 		Keyboards::mainMenu()
 	);
 }
-
 bool BotApp::isValidWordInput(const string& text) const {
 	if (text.empty()) {
 		return false;
@@ -174,13 +178,11 @@ void BotApp::startQuiz(int64_t chatId, int64_t userId) {
 	Logger::info("Quiz запущен для пользователя: " + to_string(userId));
 }
 namespace {
-	int64_t chatIdFromCallbackMessage(
-		const TgBot::MaybeInaccessibleMessage::Ptr& message
-	) {
+	int64_t chatIdFromCallbackMessage(const TgBot::MaybeInaccessibleMessage::Ptr& message) {
 		if (!message) {
 			return 0;
 		}
-		return visit([](auto&& m) -> int64_t {
+		return std::visit([](auto&& m) -> int64_t {
 			return (m && m->chat) ? m->chat->id : 0;
 			}, message->value);
 	}
@@ -214,19 +216,17 @@ void BotApp::onCallbackQuery(TgBot::CallbackQuery::Ptr query) {
 	}
 	bool correct = (chosenIndex == question.correctOptionIndex);
 	bot_.getApi().answerCallbackQuery(query->id, correct ? "✅" : "❌");
-	if (correct) { 
+	if (correct) {
 		bot_.getApi().sendMessage(chatId, "✅ Correct! " + question.correctWord.word + " = " + question.correctWord.translation);
 	}
 	else {
-		bot_.getApi().sendMessage(chatId, "💡 Almost!\nПравильный ответ: " + question.correctWord.word + " - " + question.correctWord.translation + ". \nTry to remember it for next time!");
+		bot_.getApi().sendMessage(
+			chatId,
+			"💡 Almost!\nПравильный ответ: " + question.correctWord.word + " - " + question.correctWord.translation + ". \nTry to remember it for next time!"
+		);
 	}
 	activeQuiz_.erase(it);
 	userStates_[chatId] = UserState::IDLE;
 	Logger::info("Ответ на квиз от пользователя " + to_string(userId) + ": " + (correct ? "верно" : "неверно"));
-	bot_.getApi().sendMessage(chatId,
-		"Menu:",
-		nullptr,
-		nullptr,
-		Keyboards::mainMenu()
-	);
+	bot_.getApi().sendMessage(chatId, "Menu:", nullptr, nullptr, Keyboards::mainMenu());
 }

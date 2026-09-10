@@ -5,9 +5,10 @@
 #include <vector>
 #include <random>
 #include <nlohmann/json.hpp>
+using namespace std;
 using json = nlohmann::json;
-ReminderService::ReminderService(Database& db, std::string token)
-    : db_(db), token_(std::move(token)) {
+ReminderService::ReminderService(Database& db, string token)
+    : db_(db), token_(move(token)) {
 }
 void ReminderService::sendReminders() {
     auto userIds = db_.getUsersWithReminders();
@@ -15,23 +16,23 @@ void ReminderService::sendReminders() {
         Logger::info("Нет пользователей для отправки напоминаний.");
         return;
     }
-    std::vector<std::string> reminders = {
+    vector<string> reminders = {
         "Pop! Ready for a mini quest? Can you remember this word?",
         "А вы точно помните это слово? Давайте проверим!",
         "⁠Новый квест уже ждёт вас! Смотрите вспомнить слово?",
         "⁠Время проверить память! Вспомните это слово?",
         "⁠A new quest just popped up! Can you remember the word?"
     };
-    std::random_device rd;
-    std::mt19937 generator(rd());
-    std::uniform_int_distribution<size_t> dis(0, reminders.size() - 1);
-    std::string random_reminder = reminders[dis(generator)];
+    random_device rd;
+    mt19937 generator(rd());
+    uniform_int_distribution<size_t> dis(0, reminders.size() - 1);
+    string random_reminder = reminders[dis(generator)];
     CURL* curl = curl_easy_init();
     if (!curl) {
         Logger::error("Не удалось инициализировать libcurl в ReminderService.");
         return;
     }
-    std::string url = "https://api.telegram.org/bot" + token_ + "/sendMessage";
+    string url = "https://api.telegram.org/bot" + token_ + "/sendMessage";
     struct curl_slist* headers = nullptr;
     headers = curl_slist_append(headers, "Content-Type: application/json");
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
@@ -50,14 +51,14 @@ void ReminderService::sendReminders() {
                 }}}
             }}
         };
-        std::string postData = request.dump();
+        string postData = request.dump();
         curl_easy_setopt(curl, CURLOPT_POSTFIELDS, postData.c_str());
         CURLcode result = curl_easy_perform(curl);
         if (result != CURLE_OK) {
-            Logger::error("Ошибка отправки напоминания пользователю: " + std::to_string(userId));
+            Logger::error("Ошибка отправки напоминания пользователю: " + to_string(userId));
         }
         else {
-            Logger::info("Напоминание успешно отправлено: " + std::to_string(userId));
+            Logger::info("Напоминание успешно отправлено: " + to_string(userId));
         }
     }
     curl_slist_free_all(headers);
