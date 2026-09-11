@@ -50,8 +50,8 @@ void Database::init() {
     lock_guard<mutex> lock(mutex_);
     exec(
         "CREATE TABLE IF NOT EXISTS users("
-        "user_id INTEGER NOT NULL UNIQUE, "
-        "reminders_enabled BOOLEAN DEFAULT 0"
+        "user_id INTEGER NOT NULL, "
+        "reminders_enabled BOOLEAN DEFAULT 1"
         ");"
     );
     exec(
@@ -65,10 +65,20 @@ void Database::init() {
         "added_at DATETIME DEFAULT CURRENT_TIMESTAMP"
         ");"
     );
+    exec(
+        "UPDATE users SET reminders_enabled = 1 "
+        "WHERE user_id IN (SELECT user_id FROM users WHERE reminders_enabled = 1);"
+    );
+    exec(
+        "DELETE FROM users WHERE rowid NOT IN "
+        "(SELECT MIN(rowid) FROM users GROUP BY user_id);"
+    );
+    exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_user_id ON users(user_id);");
+    exec("UPDATE users SET reminders_enabled = 1 WHERE reminders_enabled = 0;");
 }
 void Database::ensureUser(int64_t userId) {
     lock_guard<mutex> lock(mutex_);
-    string sql = "INSERT OR IGNORE INTO users (user_id) VALUES (?);";
+    string sql = "INSERT OR IGNORE INTO users (user_id, reminders_enabled) VALUES (?, 1);";
     sqlite3_stmt* stmt = nullptr;
     if (!prepare(db_, sql, &stmt)) return;
     sqlite3_bind_int64(stmt, 1, userId);
