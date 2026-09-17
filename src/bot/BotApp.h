@@ -20,6 +20,7 @@ private:
 	std::unordered_set<int64_t> firstWordAdded_;
 	std::unordered_map<int64_t, UserState> userStates_;
 	std::unordered_map<int64_t, QuizQuestion> activeQuiz_;
+	std::unordered_map<int64_t, bool> quizTypes_;
 	void registratHandlers();
 	void onStartCommand(TgBot::Message::Ptr message);
 	void onText(TgBot::Message::Ptr message);
