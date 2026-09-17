@@ -13,6 +13,7 @@ class QuizEngine {
 public:
     explicit QuizEngine(Database& db) : db_(db) {}
     std::optional<QuizQuestion> generateQuestion(int64_t userId);
+    std::optional<QuizQuestion> generate2ndQuestion(int64_t iserId);
 private:
     Database& db_;
 };
