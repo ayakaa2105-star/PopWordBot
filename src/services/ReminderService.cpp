@@ -19,7 +19,7 @@ void ReminderService::sendReminders() {
     vector<string> reminders = {
         "Pop! Ready for a mini quest? Can you remember this word?",
         "А вы точно помните это слово? Давайте проверим!",
-        "⁠Новый квест уже ждёт вас! Смотрите вспомнить слово?",
+        "⁠Новый квест уже ждёт вас! Сможете вспомнить слово?",
         "⁠Время проверить память! Вспомните это слово?",
         "⁠A new quest just popped up! Can you remember the word?"
     };
